@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
+const SOCKET_URL = 'https://mafia-backend-qbws.onrender.com';
 
 const socket = io(SOCKET_URL, {
   transports: ['websocket'],
