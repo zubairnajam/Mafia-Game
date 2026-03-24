@@ -48,3 +48,17 @@ Leveraged **WebSockets (WSS)** with customized CORS policies and heartbeats to e
    ```bash
    git clone [https://github.com/zubairnajam/Mafia-Game.git](https://github.com/zubairnajam/Mafia-Game.git)
    cd Mafia-Game
+2. **Initialize the Server**
+   ```bash
+   cd server
+   npm install
+   node index.js
+3. **Initialize the Client**
+   ```bash
+   cd ../client
+   npm install
+   npm run dev
+
+🤝 Connect
+Built with 💻 and ☕ by Zubair Najam.
+   
