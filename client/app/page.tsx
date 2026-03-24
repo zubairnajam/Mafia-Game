@@ -192,9 +192,16 @@ body::after {
 ───────────────────────────────────────────────────────────────────────────── */
 export default function Home() {
   const { connect, roomData, createRoom, joinRoom, socket } = useStore();
-  const [nameInput, setNameInput] = useState('');
+  const [nameInput, setNameInput] = useState(() => {
+    try { return localStorage.getItem('mafia_player_name') || ''; } catch { return ''; }
+  });
   const [codeInput, setCodeInput] = useState('');
   const [tab, setTab] = useState<'create' | 'join'>('create');
+
+  // Persist name whenever it changes
+  useEffect(() => {
+    try { if (nameInput.trim()) localStorage.setItem('mafia_player_name', nameInput.trim()); } catch {}
+  }, [nameInput]);
 
   useEffect(() => { connect(); }, [connect]);
 
