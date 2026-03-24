@@ -282,7 +282,7 @@ export default function Home() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
                 <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
               </svg>
-              <span>ABOUT DEVELOPER</span>
+              <span>Built by Zubair Najam</span>
             </a>
           </div>
         </div>
@@ -519,43 +519,253 @@ function GameScreen() {
     const iWon = (mafiaWon && isMafia) || (!mafiaWon && !isMafia);
 
     return (
-      <div style={s.endWrap} className="layer">
-        <div style={s.endInner} className="slide-up">
-          <p style={s.endEyebrow}>— Game Over —</p>
-          <h1 style={{ ...s.endTitle, color: mafiaWon ? 'var(--red)' : '#1e8449' }}>
-            {mafiaWon ? 'The Mafia(s) Won ' : 'The Civilian Survives'}
-          </h1>
-          <p style={s.endSub}>
-            {mafiaWon ? 'Darkness has consumed the town.' : 'Justice has been served.'}
-          </p>
-          <div style={{ ...s.endBadge, borderColor: iWon ? '#1e8449' : 'var(--red)', color: iWon ? '#1e8449' : 'var(--red)' }}>
-            {iWon ? 'Victory' : 'Defeated'}
-          </div>
+      <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden' }}>
 
-          <div style={s.revealTable}>
-            <div style={s.revealHeader}>Final Roles</div>
-            {roomData.players.map((p: any) => {
-              const pm = getRoleMeta(p.role);
-              const evil = MAFIA_ROLES.includes(p.role);
-              return (
-                <div key={p.id} style={s.revealRow}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.isAlive ? '#1e8449' : 'var(--muted)', display: 'inline-block', flexShrink: 0 }} />
-                    <span style={{ fontFamily: 'var(--sans)', fontSize: 15, textDecoration: p.isAlive ? 'none' : 'line-through', color: p.isAlive ? 'var(--cream)' : 'var(--muted)' }}>
-                      {p.name}{p.id === socket?.id && <span style={{ color: 'var(--muted)', fontSize: 12 }}> (you)</span>}
+        {/* ── Mafia wins: stormy horror background ── */}
+        {mafiaWon && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+            {/* Deep blood-red sky gradient */}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, #0a0005 0%, #1a0008 40%, #0d0003 100%)' }} />
+
+            {/* Animated SVG storm layer */}
+            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#ff2200" stopOpacity="0.18"/>
+                  <stop offset="100%" stopColor="#ff2200" stopOpacity="0"/>
+                </radialGradient>
+                <filter id="blur2"><feGaussianBlur stdDeviation="2"/></filter>
+                <filter id="blur8"><feGaussianBlur stdDeviation="8"/></filter>
+              </defs>
+
+              {/* Blood moon glow */}
+              <ellipse cx="850" cy="140" rx="180" ry="180" fill="url(#moonGlow)"/>
+              {/* Moon itself */}
+              <circle cx="850" cy="140" r="54" fill="#1a0008"/>
+              <circle cx="850" cy="140" r="50" fill="#3d0010"/>
+              {/* Moon crater texture */}
+              <circle cx="835" cy="128" r="8" fill="#2a0008" opacity="0.6"/>
+              <circle cx="862" cy="155" r="5" fill="#2a0008" opacity="0.5"/>
+              <circle cx="848" cy="145" r="3" fill="#2a0008" opacity="0.4"/>
+
+              {/* Storm clouds — layer 1 (slow drift) */}
+              <g style={{ animation: 'cloudDrift1 28s linear infinite' }}>
+                <ellipse cx="200" cy="100" rx="220" ry="70" fill="#110008" filter="url(#blur8)"/>
+                <ellipse cx="300" cy="80" rx="180" ry="55" fill="#0d0005"/>
+                <ellipse cx="150" cy="120" rx="160" ry="50" fill="#150009"/>
+              </g>
+              {/* Storm clouds — layer 2 (medium drift) */}
+              <g style={{ animation: 'cloudDrift2 20s linear infinite' }}>
+                <ellipse cx="700" cy="90" rx="250" ry="75" fill="#0e0006" filter="url(#blur8)"/>
+                <ellipse cx="800" cy="70" rx="200" ry="60" fill="#130008"/>
+                <ellipse cx="650" cy="110" rx="180" ry="55" fill="#0a0004"/>
+              </g>
+              {/* Storm clouds — layer 3 (fast, foreground) */}
+              <g style={{ animation: 'cloudDrift3 14s linear infinite' }}>
+                <ellipse cx="400" cy="60" rx="300" ry="80" fill="#1a000a" filter="url(#blur8)"/>
+                <ellipse cx="500" cy="85" rx="220" ry="65" fill="#110007"/>
+              </g>
+
+              {/* Lightning bolts — CSS animated opacity */}
+              <g style={{ animation: 'lightning1 7s ease-in-out infinite' }} opacity="0">
+                <polyline points="430,0 415,120 435,120 410,280" stroke="#ff4444" strokeWidth="2" fill="none" opacity="0.9"/>
+                <polyline points="430,0 415,120 435,120 410,280" stroke="#ffffff" strokeWidth="0.5" fill="none" opacity="0.6"/>
+              </g>
+              <g style={{ animation: 'lightning2 11s ease-in-out 3s infinite' }} opacity="0">
+                <polyline points="780,0 765,90 785,90 755,230" stroke="#cc2222" strokeWidth="1.5" fill="none" opacity="0.8"/>
+              </g>
+              <g style={{ animation: 'lightning1 9s ease-in-out 5s infinite' }} opacity="0">
+                <polyline points="220,0 205,80 225,80 195,200" stroke="#ff3333" strokeWidth="1.5" fill="none" opacity="0.7"/>
+              </g>
+
+              {/* Ground fog */}
+              <ellipse cx="600" cy="700" rx="900" ry="200" fill="#1a0008" opacity="0.8" filter="url(#blur8)"/>
+              <ellipse cx="300" cy="720" rx="600" ry="160" fill="#0d0005" opacity="0.6" filter="url(#blur8)"/>
+
+              {/* Distant silhouette — city skyline */}
+              <rect x="0" y="560" width="1200" height="140" fill="#080005"/>
+              <rect x="50" y="490" width="40" height="110" fill="#080005"/>
+              <rect x="110" y="460" width="55" height="140" fill="#080005"/>
+              <rect x="180" y="500" width="35" height="100" fill="#080005"/>
+              <rect x="240" y="440" width="70" height="160" fill="#080005"/>
+              <rect x="330" y="510" width="45" height="90" fill="#080005"/>
+              <rect x="900" y="470" width="60" height="130" fill="#080005"/>
+              <rect x="975" y="500" width="40" height="100" fill="#080005"/>
+              <rect x="1030" y="450" width="80" height="150" fill="#080005"/>
+              <rect x="1120" y="490" width="50" height="110" fill="#080005"/>
+
+              {/* Eerie red window glows */}
+              <rect x="255" y="465" width="8" height="10" fill="#cc1100" opacity="0.7"/>
+              <rect x="275" y="480" width="8" height="10" fill="#cc1100" opacity="0.5"/>
+              <rect x="1040" y="470" width="8" height="10" fill="#cc1100" opacity="0.6"/>
+              <rect x="1060" y="490" width="8" height="10" fill="#cc1100" opacity="0.4"/>
+            </svg>
+
+            {/* Dark vignette overlay */}
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,0.7) 100%)' }}/>
+          </div>
+        )}
+
+        {/* ── Town wins: dawn light background ── */}
+        {!mafiaWon && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+            {/* Deep pre-dawn gradient */}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, #050e08 0%, #0a1f10 35%, #061208 100%)' }}/>
+
+            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <radialGradient id="sunriseGlow" cx="50%" cy="100%" r="70%">
+                  <stop offset="0%" stopColor="#c9a84c" stopOpacity="0.22"/>
+                  <stop offset="50%" stopColor="#1e8449" stopOpacity="0.08"/>
+                  <stop offset="100%" stopColor="#c9a84c" stopOpacity="0"/>
+                </radialGradient>
+                <radialGradient id="sunCore" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#f0d080" stopOpacity="0.9"/>
+                  <stop offset="40%" stopColor="#c9a84c" stopOpacity="0.5"/>
+                  <stop offset="100%" stopColor="#c9a84c" stopOpacity="0"/>
+                </radialGradient>
+                <filter id="glow4"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <filter id="softBlur"><feGaussianBlur stdDeviation="6"/></filter>
+              </defs>
+
+              {/* Horizon glow */}
+              <ellipse cx="600" cy="700" rx="800" ry="320" fill="url(#sunriseGlow)"/>
+
+              {/* Sun rays fanning outward */}
+              {[...Array(18)].map((_, i) => {
+                const angle = (i / 18) * 180 - 90;
+                const rad = angle * Math.PI / 180;
+                const x2 = 600 + Math.cos(rad) * 900;
+                const y2 = 700 + Math.sin(rad) * 900;
+                return (
+                  <line key={i} x1="600" y1="700" x2={x2} y2={y2}
+                    stroke="#c9a84c" strokeWidth="1.5" opacity="0.06"
+                    style={{ animation: `rayPulse ${3 + (i % 5) * 0.4}s ease-in-out ${i * 0.15}s infinite` }}
+                  />
+                );
+              })}
+
+              {/* Sun orb (half-risen at horizon) */}
+              <ellipse cx="600" cy="700" rx="90" ry="90" fill="url(#sunCore)" filter="url(#softBlur)"/>
+              <ellipse cx="600" cy="700" rx="44" ry="44" fill="#e8c85a" opacity="0.85"/>
+              <ellipse cx="600" cy="700" rx="28" ry="28" fill="#f5e090" opacity="0.95"/>
+
+              {/* Soft dawn clouds — golden-edged */}
+              <g style={{ animation: 'cloudDrift1 40s linear infinite' }}>
+                <ellipse cx="200" cy="220" rx="280" ry="60" fill="#0e1a0e" filter="url(#softBlur)"/>
+                <ellipse cx="220" cy="208" rx="240" ry="44" fill="#12200f"/>
+                {/* Gold rim */}
+                <ellipse cx="220" cy="208" rx="240" ry="44" fill="none" stroke="#c9a84c" strokeWidth="0.5" opacity="0.18"/>
+              </g>
+              <g style={{ animation: 'cloudDrift2 32s linear infinite' }}>
+                <ellipse cx="900" cy="180" rx="260" ry="55" fill="#0d1a0d" filter="url(#softBlur)"/>
+                <ellipse cx="920" cy="168" rx="210" ry="42" fill="#111e10"/>
+                <ellipse cx="920" cy="168" rx="210" ry="42" fill="none" stroke="#c9a84c" strokeWidth="0.5" opacity="0.15"/>
+              </g>
+              <g style={{ animation: 'cloudDrift3 24s linear infinite' }}>
+                <ellipse cx="550" cy="140" rx="320" ry="65" fill="#0c180c" filter="url(#softBlur)"/>
+                <ellipse cx="560" cy="128" rx="270" ry="50" fill="#101c0e"/>
+                <ellipse cx="560" cy="128" rx="270" ry="50" fill="none" stroke="#c9a84c" strokeWidth="0.4" opacity="0.2"/>
+              </g>
+
+              {/* Rising light particles */}
+              {[...Array(22)].map((_, i) => (
+                <circle key={i}
+                  cx={100 + (i * 53) % 1000}
+                  cy={500 - (i * 37) % 350}
+                  r={1 + (i % 3) * 0.8}
+                  fill="#c9a84c"
+                  opacity={0.3 + (i % 4) * 0.1}
+                  style={{ animation: `particleRise ${4 + (i % 6)}s ease-in-out ${i * 0.3}s infinite` }}
+                />
+              ))}
+
+              {/* Silhouetted town (peaceful, intact) */}
+              <rect x="0" y="580" width="1200" height="120" fill="#060e06"/>
+              <rect x="40" y="520" width="35" height="100" fill="#060e06"/>
+              <polygon points="57,500 40,520 75,520" fill="#060e06"/>
+              <rect x="100" y="500" width="50" height="120" fill="#060e06"/>
+              <polygon points="125,478 100,500 150,500" fill="#060e06"/>
+              <rect x="175" y="530" width="30" height="90" fill="#060e06"/>
+              <rect x="230" y="510" width="55" height="110" fill="#060e06"/>
+              <polygon points="257,488 230,510 285,510" fill="#060e06"/>
+              <rect x="320" y="540" width="40" height="80" fill="#060e06"/>
+              <rect x="900" y="510" width="55" height="110" fill="#060e06"/>
+              <polygon points="927,488 900,510 955,510" fill="#060e06"/>
+              <rect x="970" y="530" width="35" height="90" fill="#060e06"/>
+              <rect x="1020" y="500" width="60" height="120" fill="#060e06"/>
+              <polygon points="1050,478 1020,500 1080,500" fill="#060e06"/>
+              <rect x="1100" y="520" width="45" height="100" fill="#060e06"/>
+
+              {/* Warm window lights — town safe and lit */}
+              <rect x="108" y="520" width="7" height="9" fill="#c9a84c" opacity="0.7"/>
+              <rect x="122" y="510" width="7" height="9" fill="#c9a84c" opacity="0.5"/>
+              <rect x="238" y="530" width="7" height="9" fill="#c9a84c" opacity="0.65"/>
+              <rect x="258" y="520" width="7" height="9" fill="#c9a84c" opacity="0.5"/>
+              <rect x="1028" y="520" width="7" height="9" fill="#c9a84c" opacity="0.6"/>
+              <rect x="1048" y="510" width="7" height="9" fill="#c9a84c" opacity="0.45"/>
+            </svg>
+
+            {/* Soft vignette */}
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 60%, transparent 40%, rgba(0,0,0,0.55) 100%)' }}/>
+          </div>
+        )}
+
+        {/* CSS keyframes for background animations */}
+        <style>{`
+          @keyframes cloudDrift1 { from { transform: translateX(-80px); } to { transform: translateX(80px); } }
+          @keyframes cloudDrift2 { from { transform: translateX(60px); } to { transform: translateX(-60px); } }
+          @keyframes cloudDrift3 { from { transform: translateX(-40px); } to { transform: translateX(40px); } }
+          @keyframes lightning1  { 0%,88%,100%{opacity:0} 90%{opacity:1} 93%{opacity:0.3} 95%{opacity:0.9} 97%{opacity:0} }
+          @keyframes lightning2  { 0%,82%,100%{opacity:0} 85%{opacity:0.8} 88%{opacity:0.2} 90%{opacity:0.7} 92%{opacity:0} }
+          @keyframes rayPulse    { 0%,100%{opacity:0.04} 50%{opacity:0.12} }
+          @keyframes particleRise{ 0%{transform:translateY(0);opacity:0.4} 50%{opacity:0.7} 100%{transform:translateY(-120px);opacity:0} }
+        `}</style>
+
+        {/* ── Content layer ── */}
+        <div className="layer" style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <div style={s.endInner} className="slide-up">
+            <p style={s.endEyebrow}>— Game Over —</p>
+            <h1 style={{ ...s.endTitle, color: mafiaWon ? '#cc2222' : '#4ade80' }}>
+              {mafiaWon ? 'The Mafia Prevails' : 'The Town Survives'}
+            </h1>
+            <p style={s.endSub}>
+              {mafiaWon ? 'Darkness has consumed the town.' : 'Justice has been served.'}
+            </p>
+            <div style={{ ...s.endBadge, borderColor: iWon ? '#4ade80' : '#cc2222', color: iWon ? '#4ade80' : '#cc2222' }}>
+              {iWon ? 'Victory' : 'Defeated'}
+            </div>
+
+            <div style={s.revealTable}>
+              <div style={s.revealHeader}>Final Roles</div>
+              {roomData.players.map((p: any) => {
+                const pm = getRoleMeta(p.role);
+                const evil = MAFIA_ROLES.includes(p.role);
+                return (
+                  <div key={p.id} style={s.revealRow}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.isAlive ? '#4ade80' : 'var(--muted)', display: 'inline-block', flexShrink: 0 }} />
+                      <span style={{ fontFamily: 'var(--sans)', fontSize: 15, textDecoration: p.isAlive ? 'none' : 'line-through', color: p.isAlive ? 'var(--cream)' : 'var(--muted)' }}>
+                        {p.name}{p.id === socket?.id && <span style={{ color: 'var(--muted)', fontSize: 12 }}> (you)</span>}
+                      </span>
+                    </div>
+                    <span style={{ ...s.rolePill, background: evil ? 'rgba(192,57,43,0.15)' : 'rgba(30,132,73,0.12)', color: pm.color, borderColor: evil ? 'rgba(192,57,43,0.35)' : 'rgba(30,132,73,0.3)' }}>
+                      {pm.glyph} {pm.label}
                     </span>
                   </div>
-                  <span style={{ ...s.rolePill, background: evil ? 'rgba(192,57,43,0.15)' : 'rgba(30,132,73,0.12)', color: pm.color, borderColor: evil ? 'rgba(192,57,43,0.35)' : 'rgba(30,132,73,0.3)' }}>
-                    {pm.glyph} {pm.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          <p style={{ color: 'var(--muted)', fontSize: 13, fontFamily: 'var(--sans)', marginTop: 24 }}>
-            Refresh the page to start a new game
-          </p>
+            {/* Play Again button */}
+            <button
+              className="btn btn-fill"
+              style={{ marginTop: 28, padding: '13px 48px', fontSize: 14 }}
+              onClick={() => window.location.reload()}
+            >
+              Play Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -566,9 +776,9 @@ function GameScreen() {
     if (!me.isAlive) return 'You have been eliminated. Watch silently.';
     if (selectedTarget) return 'Locked in. Waiting for others...';
     if (roomData.status === 'DAY') return 'The town convenes. Discuss, then cast your vote.';
-    if (roomData.status === 'MAFIA_TURN') return isMafia ? 'Choose your target for tonight.' : 'The night is quiet and dark . Mafia(s) are cooking....';
-    if (roomData.status === 'DETECTIVE_TURN') return me.role === 'DETECTIVE' ? 'Choose someone to investigate.' : 'Detective is interrogating someone....';
-    if (roomData.status === 'DOCTOR_TURN') return me.role === 'DOCTOR' ? 'Choose someone to protect.' : 'Doctor is saving someone....';
+    if (roomData.status === 'MAFIA_TURN') return isMafia ? 'Choose your target for tonight.' : 'The night is quiet. Something stirs in the dark...';
+    if (roomData.status === 'DETECTIVE_TURN') return me.role === 'DETECTIVE' ? 'Choose someone to investigate.' : 'A shadow moves through the alleys...';
+    if (roomData.status === 'DOCTOR_TURN') return me.role === 'DOCTOR' ? 'Choose someone to protect.' : 'A lantern flickers in the dark...';
     return 'The town sleeps.';
   };
 
