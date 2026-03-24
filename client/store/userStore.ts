@@ -5,7 +5,7 @@ const SOCKET_URL = 'https://mafia-backend-qbws.onrender.com';
 
 const socket = io(SOCKET_URL, {
   transports: ['websocket'],
-  autoConnect: false,
+  reconnection: true
 });
 
 interface MafiaChatMessage {

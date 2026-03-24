@@ -271,6 +271,19 @@ export default function Home() {
             <div className="ornament" style={{ marginTop: 20 }}>
               <span>4 – 20 players · No account needed</span>
             </div>
+
+            {/* LinkedIn — prominent, on-theme */}
+            <a
+              href="https://www.linkedin.com/in/zubair-najam"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={s.linkedinLanding}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+              </svg>
+              <span>Built by Zubair Najam</span>
+            </a>
           </div>
         </div>
       </>
@@ -458,8 +471,33 @@ function GameScreen() {
   const { roomData, socket, submitNightAction, submitDayVote, announcement, investigationResult } = useStore();
   const me = roomData.players.find((p: any) => p.id === socket?.id);
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const [turnPrompt, setTurnPrompt] = useState<string | null>(null);
+  const prevStatus = useRef<string>('');
 
   useEffect(() => { setSelectedTarget(null); }, [roomData.status]);
+
+  // Fire a brief "Your Turn" prompt whenever the phase flips to one belonging to this player
+  useEffect(() => {
+    const status = roomData.status;
+    if (status === prevStatus.current) return;
+    prevStatus.current = status;
+
+    let prompt: string | null = null;
+    if (status === 'MAFIA_TURN' && MAFIA_ROLES.includes(me.role) && me.isAlive) {
+      prompt = 'Your Turn — Choose a Target';
+    } else if (status === 'DETECTIVE_TURN' && me.role === 'DETECTIVE' && me.isAlive) {
+      prompt = 'Your Turn — Investigate Someone';
+    } else if (status === 'DOCTOR_TURN' && me.role === 'DOCTOR' && me.isAlive) {
+      prompt = 'Your Turn — Protect Someone';
+    } else if (status === 'DAY' && me.isAlive) {
+      prompt = 'Day Begins — Cast Your Vote';
+    }
+
+    if (prompt) {
+      setTurnPrompt(prompt);
+      setTimeout(() => setTurnPrompt(null), 2200);
+    }
+  }, [roomData.status]);
 
   if (!me) {
     return (
@@ -562,6 +600,17 @@ function GameScreen() {
         <div className="cinematic">
           <div className="cinematic-text">{announcement}</div>
           <div className="cinematic-rule" />
+        </div>
+      )}
+
+      {/* ── Your Turn prompt — brief, distinct from announcements ── */}
+      {turnPrompt && !announcement && (
+        <div style={s.turnPromptOverlay}>
+          <div style={s.turnPromptInner}>
+            <div style={s.turnPromptEyebrow}>— Action Required —</div>
+            <div style={s.turnPromptText}>{turnPrompt}</div>
+            <div style={s.turnPromptBar} />
+          </div>
         </div>
       )}
 
@@ -675,9 +724,10 @@ function GameScreen() {
         rel="noopener noreferrer"
         style={s.linkedin}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
           <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
         </svg>
+        <span style={{ fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 500, letterSpacing: '0.04em' }}>Zubair Najam</span>
       </a>
     </div>
   );
@@ -974,13 +1024,66 @@ const s: Record<string, React.CSSProperties> = {
     padding: '3px 12px', borderRadius: 100, border: '1px solid',
   },
 
-  /* LinkedIn */
+  /* LinkedIn — game screen */
   linkedin: {
     position: 'fixed', bottom: 18, right: 18,
-    color: 'var(--muted)', background: 'var(--card-bg)',
-    border: '1px solid var(--border)', borderRadius: 8,
-    padding: '8px', display: 'flex', alignItems: 'center',
+    color: 'var(--gold)',
+    background: 'rgba(13,11,8,0.85)',
+    border: '1px solid var(--border-hi)',
+    borderRadius: 8,
+    padding: '8px 14px',
+    display: 'flex', alignItems: 'center', gap: 8,
     transition: 'all 0.2s', textDecoration: 'none',
     zIndex: 60,
+    backdropFilter: 'blur(8px)',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+  },
+
+  /* LinkedIn — landing page */
+  linkedinLanding: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginTop: 16, padding: '10px 16px',
+    background: 'var(--gold-dim)',
+    border: '1px solid var(--border-hi)',
+    borderRadius: 6,
+    color: 'var(--gold)',
+    fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500,
+    letterSpacing: '0.04em', textDecoration: 'none',
+    transition: 'all 0.2s',
+  },
+
+  /* Turn prompt overlay */
+  turnPromptOverlay: {
+    position: 'fixed', inset: 0, zIndex: 190,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(0,0,0,0.75)',
+    backdropFilter: 'blur(6px)',
+    animation: 'fadeIn 0.2s ease',
+    pointerEvents: 'none',
+  },
+  turnPromptInner: {
+    textAlign: 'center',
+    padding: '40px 60px',
+    border: '1px solid var(--border-hi)',
+    borderRadius: 4,
+    background: 'rgba(13,11,8,0.9)',
+    boxShadow: '0 0 60px var(--gold-glow), 0 24px 60px rgba(0,0,0,0.6)',
+  },
+  turnPromptEyebrow: {
+    fontFamily: 'var(--sans)', fontSize: 11, fontWeight: 600,
+    letterSpacing: '0.25em', textTransform: 'uppercase',
+    color: 'var(--muted)', marginBottom: 14,
+  },
+  turnPromptText: {
+    fontFamily: 'var(--serif)', fontStyle: 'italic',
+    fontSize: 'clamp(22px, 4vw, 36px)', fontWeight: 700,
+    color: 'var(--gold)',
+    textShadow: '0 0 40px var(--gold-glow)',
+    letterSpacing: '0.02em',
+  },
+  turnPromptBar: {
+    width: 0, height: 2, background: 'var(--gold)',
+    margin: '18px auto 0',
+    animation: 'expand 2.2s linear forwards',
   },
 };
