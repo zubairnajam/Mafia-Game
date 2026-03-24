@@ -523,7 +523,7 @@ function GameScreen() {
         <div style={s.endInner} className="slide-up">
           <p style={s.endEyebrow}>— Game Over —</p>
           <h1 style={{ ...s.endTitle, color: mafiaWon ? 'var(--red)' : '#1e8449' }}>
-            {mafiaWon ? 'The Mafia Prevails' : 'The Town Survives'}
+            {mafiaWon ? 'The Mafia(s) Won ' : 'The Civilian Survives'}
           </h1>
           <p style={s.endSub}>
             {mafiaWon ? 'Darkness has consumed the town.' : 'Justice has been served.'}
@@ -566,9 +566,9 @@ function GameScreen() {
     if (!me.isAlive) return 'You have been eliminated. Watch silently.';
     if (selectedTarget) return 'Locked in. Waiting for others...';
     if (roomData.status === 'DAY') return 'The town convenes. Discuss, then cast your vote.';
-    if (roomData.status === 'MAFIA_TURN') return isMafia ? 'Choose your target for tonight.' : 'The night is quiet. Something stirs in the dark...';
-    if (roomData.status === 'DETECTIVE_TURN') return me.role === 'DETECTIVE' ? 'Choose someone to investigate.' : 'A shadow moves through the alleys...';
-    if (roomData.status === 'DOCTOR_TURN') return me.role === 'DOCTOR' ? 'Choose someone to protect.' : 'A lantern flickers in the dark...';
+    if (roomData.status === 'MAFIA_TURN') return isMafia ? 'Choose your target for tonight.' : 'The night is quiet and dark . Mafia(s) are cooking....';
+    if (roomData.status === 'DETECTIVE_TURN') return me.role === 'DETECTIVE' ? 'Choose someone to investigate.' : 'Detective is interrogating someone....';
+    if (roomData.status === 'DOCTOR_TURN') return me.role === 'DOCTOR' ? 'Choose someone to protect.' : 'Doctor is saving someone....';
     return 'The town sleeps.';
   };
 
