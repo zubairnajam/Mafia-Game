@@ -6,8 +6,14 @@ const gameManager = require('./gameManager');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
+  cors: { origin: '*', methods: ['GET', 'POST'] },
 });
+
+// How long to show a "ghost turn" for a dead role (ms)
+// Long enough that no one knows the role is dead, short enough to keep game moving
+const GHOST_TURN_DELAY = 3000;
+
+const MAFIA_ROLES = ['MAFIA', 'GODFATHER', 'FATHER_MAFIA'];
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
@@ -15,10 +21,70 @@ io.on('connection', (socket) => {
   const emitRoomUpdate = (roomCode) => {
     const room = gameManager.rooms.get(roomCode);
     if (!room) return;
-    room.players.forEach(p => {
+    room.players.forEach((p) => {
       io.to(p.id).emit('roomUpdate', gameManager.getSanitizedRoomState(roomCode, p.id));
     });
   };
+
+  const isRoleAlive = (room, role) => {
+    return room.players.some(p => p.role === role && p.isAlive);
+  };
+
+  // After mafia or detective acts, figure out what comes next.
+  // If the next role is DEAD, show their turn briefly (ghost turn) then auto-skip.
+  // If the role is DISABLED entirely (settings), skip with no delay.
+  const advanceNightTurn = (roomCode) => {
+    const room = gameManager.rooms.get(roomCode);
+    const { hasDetective, hasDoctor } = room.settings;
+
+    if (room.status === 'MAFIA_TURN') {
+
+      if (hasDetective) {
+        // Detective is in the game — show their turn regardless of alive status
+        room.status = 'DETECTIVE_TURN';
+        emitRoomUpdate(roomCode);
+
+        if (!isRoleAlive(room, 'DETECTIVE')) {
+          // Ghost turn: detective is dead, wait briefly then auto-advance
+          setTimeout(() => advanceNightTurn(roomCode), GHOST_TURN_DELAY);
+        }
+        // If detective IS alive, we wait for them to submit a nightAction normally
+
+      } else if (hasDoctor) {
+        // No detective in game at all, check doctor
+        room.status = 'DOCTOR_TURN';
+        emitRoomUpdate(roomCode);
+
+        if (!isRoleAlive(room, 'DOCTOR')) {
+          setTimeout(() => handleNightTransition(roomCode), GHOST_TURN_DELAY);
+        }
+
+      } else {
+        // Neither detective nor doctor in game — resolve immediately
+        handleNightTransition(roomCode);
+      }
+
+    } else if (room.status === 'DETECTIVE_TURN') {
+      // Detective just finished (or ghost turn expired), move to doctor
+
+      if (hasDoctor) {
+        room.status = 'DOCTOR_TURN';
+        emitRoomUpdate(roomCode);
+
+        if (!isRoleAlive(room, 'DOCTOR')) {
+          // Ghost turn for dead doctor
+          setTimeout(() => handleNightTransition(roomCode), GHOST_TURN_DELAY);
+        }
+        // If doctor IS alive, wait for their nightAction
+
+      } else {
+        // No doctor in game — resolve now
+        handleNightTransition(roomCode);
+      }
+    }
+  };
+
+  // ── Room Events ────────────────────────────────────────────────────────────
 
   socket.on('createRoom', ({ playerName }) => {
     const roomCode = gameManager.createRoom(socket.id, playerName);
@@ -45,40 +111,35 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── Night Actions ──────────────────────────────────────────────────────────
+
   socket.on('nightAction', ({ roomCode, targetId, role }) => {
     const room = gameManager.rooms.get(roomCode);
-    if (!room || room.status !== 'NIGHT') return;
+    if (!room) return;
 
-    if (role === 'MAFIA') room.nightActions.mafiaTarget = targetId;
-    if (role === 'DOCTOR') room.nightActions.doctorTarget = targetId;
+    if (MAFIA_ROLES.includes(role)) {
+      room.nightActions.mafiaTarget = targetId;
+      advanceNightTurn(roomCode);
 
-    if (role === 'DETECTIVE') {
+    } else if (role === 'DETECTIVE') {
+      // Guard: only process if it's actually detective's turn and they're alive
+      if (room.status !== 'DETECTIVE_TURN') return;
       room.nightActions.detectiveTarget = targetId;
-      const targetPlayer = room.players.find(p => p.id === targetId);
-      const isMafia = targetPlayer && targetPlayer.role === 'MAFIA';
-      socket.emit('investigationResult', isMafia ? `🕵️ YES! ${targetPlayer.name} is the Mafia!` : `❌ No, ${targetPlayer.name} is innocent.`);
-    }
+      const target = room.players.find((p) => p.id === targetId);
+      // Godfather always appears innocent
+      const isEvil = target && MAFIA_ROLES.includes(target.role) && target.role !== 'GODFATHER';
+      socket.emit('investigationResult', isEvil ? '🕵️ MAFIA FOUND!' : '❌ Innocent.');
+      advanceNightTurn(roomCode);
 
-    const aliveMafia = room.players.filter(p => p.role === 'MAFIA' && p.isAlive).length > 0;
-    const aliveDoctor = room.players.filter(p => p.role === 'DOCTOR' && p.isAlive).length > 0;
-    const aliveDetective = room.players.filter(p => p.role === 'DETECTIVE' && p.isAlive).length > 0;
-
-    const mafiaDone = !aliveMafia || room.nightActions.mafiaTarget;
-    const doctorDone = !aliveDoctor || room.nightActions.doctorTarget;
-    const detectiveDone = !aliveDetective || room.nightActions.detectiveTarget;
-
-    // This block runs when ALL alive special roles have locked in their choices
-    if (mafiaDone && doctorDone && detectiveDone) {
-       const deadPlayer = gameManager.processNightActions(roomCode);
-       
-       if (gameManager.checkWinCondition(roomCode)) {
-         io.to(roomCode).emit('morningAnnouncement', deadPlayer ? `${deadPlayer} was killed. GAME OVER!` : `Nobody died. GAME OVER!`);
-       } else {
-         io.to(roomCode).emit('morningAnnouncement', deadPlayer ? `${deadPlayer} was killed in the night.` : `Nobody died last night.`);
-       }
-       emitRoomUpdate(roomCode);
+    } else if (role === 'DOCTOR') {
+      // Guard: only process if it's doctor's turn and they're alive
+      if (room.status !== 'DOCTOR_TURN') return;
+      room.nightActions.doctorTarget = targetId;
+      handleNightTransition(roomCode);
     }
   });
+
+  // ── Day Vote ───────────────────────────────────────────────────────────────
 
   socket.on('dayVote', ({ roomCode, targetId }) => {
     const room = gameManager.rooms.get(roomCode);
@@ -86,54 +147,132 @@ io.on('connection', (socket) => {
 
     room.votes[socket.id] = targetId;
 
-    const alivePlayers = room.players.filter(p => p.isAlive);
-    // Check if everyone alive has voted
-    if (Object.keys(room.votes).length === alivePlayers.length) {
-      
+    const alivePlayers = room.players.filter((p) => p.isAlive);
+
+    if (Object.keys(room.votes).length >= alivePlayers.length) {
       const voteCounts = {};
-      Object.values(room.votes).forEach(id => {
+      Object.values(room.votes).forEach((id) => {
         voteCounts[id] = (voteCounts[id] || 0) + 1;
       });
 
       let maxVotes = 0;
-      let eliminatedIds = []; // 🔥 NEW: Keep track of ties
-
-      // Find the highest votes
+      let eliminatedIds = [];
       for (const [id, count] of Object.entries(voteCounts)) {
-        if (count > maxVotes) {
-          maxVotes = count;
-          eliminatedIds = [id]; // New leader
-        } else if (count === maxVotes) {
-          eliminatedIds.push(id); // Tie!
-        }
+        if (count > maxVotes) { maxVotes = count; eliminatedIds = [id]; }
+        else if (count === maxVotes) { eliminatedIds.push(id); }
       }
 
-      // 🔥 NEW: Tie-Breaker Logic
+      let msg = '';
       if (eliminatedIds.length === 1) {
-        // Only one person got the max votes, execute them!
-        const target = room.players.find(p => p.id === eliminatedIds[0]);
+        const target = room.players.find((p) => p.id === eliminatedIds[0]);
         if (target) {
           target.isAlive = false;
-          
-          if (gameManager.checkWinCondition(roomCode)) {
-             io.to(roomCode).emit('morningAnnouncement', `${target.name} was voted out. GAME OVER!`);
-          } else {
-             io.to(roomCode).emit('morningAnnouncement', `${target.name} was voted out!`);
-          }
+          msg = `⚖️ The town has spoken. ${target.name} has been voted out.`;
         }
       } else {
-        // It's a tie! Nobody dies.
-        io.to(roomCode).emit('morningAnnouncement', `The town was split! Nobody was voted out today.`);
+        msg = '🤝 The town was split! Nobody was voted out today.';
       }
 
-      // Move to night phase if game isn't over
-      if (room.status !== 'END') {
-        room.status = 'NIGHT';
-      }
-      room.votes = {};
+      io.to(roomCode).emit('morningAnnouncement', msg);
+
+      setTimeout(() => {
+        const gameEnded = gameManager.checkWinCondition(roomCode);
+        if (gameEnded) {
+          emitRoomUpdate(roomCode);
+        } else {
+          showContinueSequence(roomCode, 'night');
+        }
+      }, 4500);
+
+    } else {
       emitRoomUpdate(roomCode);
     }
   });
+
+  // ── Mafia Chat ─────────────────────────────────────────────────────────────
+  // Server enforces that only mafia members can send AND receive this event.
+  // Town members never get these messages — not even in the wrong state.
+
+  socket.on('mafiaChatMessage', ({ roomCode, message }) => {
+    const room = gameManager.rooms.get(roomCode);
+    if (!room) return;
+
+    // Verify the sender is actually mafia (server-side check, not client trust)
+    const sender = room.players.find(p => p.id === socket.id);
+    if (!sender || !MAFIA_ROLES.includes(sender.role)) return;
+
+    // Only during night phases — mafia can't use secret channel during day
+    const nightStatuses = ['MAFIA_TURN', 'DETECTIVE_TURN', 'DOCTOR_TURN'];
+    if (!nightStatuses.includes(room.status)) return;
+
+    // Trim and cap message length
+    const clean = String(message).trim().slice(0, 200);
+    if (!clean) return;
+
+    const payload = {
+      senderName: sender.name,
+      message: clean,
+      timestamp: Date.now(),
+    };
+
+    // Send ONLY to mafia members — loop through players, emit per socket id
+    room.players.forEach(p => {
+      if (MAFIA_ROLES.includes(p.role)) {
+        io.to(p.id).emit('mafiaChatMessage', payload);
+      }
+    });
+  });
+
+  // ── Night → Day Transition ─────────────────────────────────────────────────
+
+  function handleNightTransition(roomCode) {
+    const room = gameManager.rooms.get(roomCode);
+    if (!room) return;
+
+    const deadPlayerName = gameManager.processNightActions(roomCode);
+
+    const msg = deadPlayerName
+      ? `💀 ${deadPlayerName} was killed last night.`
+      : '🛡️ A quiet night... The Doctor saved someone!';
+
+    io.to(roomCode).emit('morningAnnouncement', msg);
+
+    setTimeout(() => {
+      const gameEnded = gameManager.checkWinCondition(roomCode);
+      if (gameEnded) {
+        emitRoomUpdate(roomCode);
+      } else {
+        showContinueSequence(roomCode, 'day');
+      }
+    }, 4500);
+  }
+
+  function showContinueSequence(roomCode, nextPhase) {
+    const room = gameManager.rooms.get(roomCode);
+    if (!room) return;
+
+    const mafiaAlive = room.players.some(p => p.isAlive && MAFIA_ROLES.includes(p.role));
+
+    if (mafiaAlive) {
+      io.to(roomCode).emit('morningAnnouncement', '⚠️ MAFIA STILL REMAINS...');
+    }
+
+    setTimeout(() => {
+      if (nextPhase === 'day') {
+        io.to(roomCode).emit('morningAnnouncement', '☀️ Day breaks. Discuss and vote!');
+      } else {
+        io.to(roomCode).emit('morningAnnouncement', '🌙 Night falls again. Next Round...');
+      }
+
+      setTimeout(() => {
+        room.status = nextPhase === 'day' ? 'DAY' : 'MAFIA_TURN';
+        room.votes = {};
+        room.nightActions = {};
+        emitRoomUpdate(roomCode);
+      }, 2500);
+
+    }, mafiaAlive ? 3500 : 500);
+  }
 
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);

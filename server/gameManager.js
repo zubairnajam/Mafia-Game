@@ -1,7 +1,6 @@
-
 class GameManager {
   constructor() {
-    this.rooms = new Map(); // roomCode -> RoomData
+    this.rooms = new Map();
   }
 
   createRoom(hostId, hostName) {
@@ -9,11 +8,12 @@ class GameManager {
     this.rooms.set(roomCode, {
       code: roomCode,
       host: hostId,
-      status: 'LOBBY', // LOBBY, NIGHT, DAY, END
+      status: 'LOBBY',
       players: [{ id: hostId, name: hostName, role: null, isAlive: true }],
       settings: { mafiaCount: 1, hasDoctor: true, hasDetective: true, hasCupid: false },
-      nightActions: {}, // { mafiaTarget: id, doctorTarget: id, detectiveTarget: id }
-      votes: {} // { voterId: targetId }
+      nightActions: {},
+      votes: {},
+      winner: null, // ← added so frontend can always read this
     });
     return roomCode;
   }
@@ -28,54 +28,48 @@ class GameManager {
   startGame(roomCode) {
     const room = this.rooms.get(roomCode);
     if (!room) return;
-    
-    // 1. Assign Roles
     this.assignRoles(room);
-    
-    // 2. Switch to Night Phase
-    room.status = 'NIGHT';
+    room.status = 'MAFIA_TURN';
     room.nightActions = {};
+    room.votes = {};
+    room.winner = null;
   }
 
   assignRoles(room) {
     const players = room.players;
-    
-    // 🔥 NEW: Dynamic Mafia Logic! > 6 players = 2 Mafia. Otherwise 1.
     const actualMafiaCount = players.length > 6 ? 2 : 1;
-    
+
     let pool = Array(players.length).fill('CIVILIAN');
-    
     let index = 0;
-    // Assign the correct number of Mafia
+
     for (let i = 0; i < actualMafiaCount; i++) {
       pool[index++] = 'MAFIA';
     }
-    
-    if (room.settings.hasDoctor) pool[index++] = 'DOCTOR';
-    if (room.settings.hasDetective) pool[index++] = 'DETECTIVE';
-    if (room.settings.hasCupid) pool[index++] = 'CUPID';
+    if (room.settings.hasDoctor && index < players.length) pool[index++] = 'DOCTOR';
+    if (room.settings.hasDetective && index < players.length) pool[index++] = 'DETECTIVE';
+    if (room.settings.hasCupid && index < players.length) pool[index++] = 'CUPID';
 
-    // Shuffle and assign
     pool.sort(() => Math.random() - 0.5);
-    players.forEach((p, i) => p.role = pool[i]);
+    players.forEach((p, i) => (p.role = pool[i]));
   }
 
   processNightActions(roomCode) {
     const room = this.rooms.get(roomCode);
     const { mafiaTarget, doctorTarget } = room.nightActions;
-    let deadPlayer = null;
+    let deadPlayerName = null;
 
     if (mafiaTarget && mafiaTarget !== doctorTarget) {
       const target = room.players.find(p => p.id === mafiaTarget);
       if (target) {
         target.isAlive = false;
-        deadPlayer = target.name;
+        deadPlayerName = target.name;
       }
     }
-    room.status = 'DAY';
+
+    // Don't set status here — caller handles that after checking win condition
     room.nightActions = {};
     room.votes = {};
-    return deadPlayer; // Returns who died for the morning announcement
+    return deadPlayerName;
   }
 
   checkWinCondition(roomCode) {
@@ -83,42 +77,43 @@ class GameManager {
     if (!room) return false;
 
     const alivePlayers = room.players.filter(p => p.isAlive);
-    const aliveMafia = alivePlayers.filter(p => p.role === 'MAFIA').length;
-    const aliveCivilians = alivePlayers.length - aliveMafia;
+
+    // ← FIX: count ALL mafia-aligned roles, not just 'MAFIA'
+    const MAFIA_ROLES = ['MAFIA', 'GODFATHER', 'FATHER_MAFIA'];
+    const aliveMafia = alivePlayers.filter(p => MAFIA_ROLES.includes(p.role)).length;
+    const aliveTown = alivePlayers.length - aliveMafia;
 
     if (aliveMafia === 0) {
       room.status = 'END';
-      room.winner = 'CIVILIANS 🎉';
-      return true;
-    } else if (aliveMafia >= aliveCivilians) {
-      room.status = 'END';
-      room.winner = 'MAFIA 🔪';
+      room.winner = 'CIVILIANS';
       return true;
     }
+
+    if (aliveMafia >= aliveTown) {
+      room.status = 'END';
+      room.winner = 'MAFIA';
+      return true;
+    }
+
     return false;
   }
 
-  // Security step: Clients only get the info they are allowed to see
   getSanitizedRoomState(roomCode, playerId) {
     const room = this.rooms.get(roomCode);
     if (!room) return null;
 
     const player = room.players.find(p => p.id === playerId);
-    
-    // Deep copy to avoid mutating actual state
     const safeRoom = JSON.parse(JSON.stringify(room));
-    
-    safeRoom.players = safeRoom.players.map(p => {
-      // Hide roles unless: game is over, it's the player's own role, or they are fellow mafia
-      const showRole = 
-        room.status === 'END' || 
-        p.id === playerId || 
-        (player?.role === 'MAFIA' && p.role === 'MAFIA');
 
-      return {
-        ...p,
-        role: showRole ? p.role : '???'
-      };
+    const MAFIA_ROLES = ['MAFIA', 'GODFATHER', 'FATHER_MAFIA'];
+
+    safeRoom.players = safeRoom.players.map(p => {
+      const showRole =
+        room.status === 'END' ||
+        p.id === playerId ||
+        (player?.role && MAFIA_ROLES.includes(player.role) && MAFIA_ROLES.includes(p.role));
+
+      return { ...p, role: showRole ? p.role : '???' };
     });
 
     return safeRoom;
